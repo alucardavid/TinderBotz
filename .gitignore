@@ -1,4 +1,4 @@
-venv
+.venv
 .idea
 constants.py
 data/
@@ -7,3 +7,5 @@ dist
 build
 __pycache__/
 chrome_profile/
+chromedriver.exe
+.env

@@ -41,11 +41,10 @@ class MatchHelper:
                 return True
             last_height = new_height
 
-
     def get_chat_ids(self, new, messaged):
         chatids = []
 
-        xpath = '//button[@role="tab"]'
+        xpath = '//*[@id="s1164806355"]'
         try:
             WebDriverWait(self.browser, self.delay).until(EC.presence_of_element_located((By.XPATH, xpath)))
         except TimeoutException:
@@ -69,14 +68,14 @@ class MatchHelper:
 
             # start scraping new matches
             try:
-                xpath = '//div[@role="tabpanel"]'
+                xpath = '//*[@id="s-1876149841"]'
 
                 # wait for element to appear
                 WebDriverWait(self.browser, self.delay).until(EC.presence_of_element_located((By.XPATH, xpath)))
 
                 div = self.browser.find_element(By.XPATH, xpath)
 
-                list_refs = div.find_elements(By.XPATH, './/div/div/a')
+                list_refs = div.find_elements(By.XPATH, './/ul/li/a')
                 for index in range(len(list_refs)):
                     try:
                         ref = list_refs[index].get_attribute('href')
@@ -102,7 +101,7 @@ class MatchHelper:
 
             # Start scraping the chatted matches
             try:
-                xpath = '//div[@class="messageList"]'
+                xpath = '//*[@id="s1330994769"]'
 
                 # wait for element to appear
                 WebDriverWait(self.browser, self.delay).until(EC.presence_of_element_located(
@@ -134,6 +133,7 @@ class MatchHelper:
 
             new_chatids = self.get_chat_ids(new=True, messaged=False)
             copied = new_chatids.copy()
+            print(f'Copied --------------- {copied}')
             for index in range(len(copied)):
                 chatid = copied[index]
                 if chatid in used_chatids:
@@ -154,6 +154,7 @@ class MatchHelper:
             print(f"\nGetting not-interacted-with, NEW MATCHES, part {iteration}")
             loadingbar = LoadingBar(len(new_chatids), "new matches")
             for index, chatid in enumerate(new_chatids):
+                print('Interando sobre os chats')
                 matches.append(self.get_match(chatid, quickload))
                 loadingbar.update_loading(index)
             print("\n")
@@ -355,6 +356,8 @@ class MatchHelper:
 
         href = "/app/messages/{}".format(chatid)
 
+        print(f'Open Chats --------- {href}')
+
         # look for the match with that chatid
         # first we're gonna look for the match in the already interacted matches
         try:
@@ -399,6 +402,7 @@ class MatchHelper:
         time.sleep(1)
 
     def get_match(self, chatid, quickload):
+        print(f'Chat id ------------ {chatid}')
         if not self._is_chat_opened(chatid):
             self._open_chat(chatid)
 
@@ -415,6 +419,7 @@ class MatchHelper:
         distance = rowdata.get('distance')
 
         passions = self.get_passions(chatid)
+        
 
         return Match(name=name, chatid=chatid, age=age, work=work, study=study, home=home, gender=gender, distance=distance, bio=bio, passions=passions, image_urls=image_urls)
 
@@ -423,7 +428,7 @@ class MatchHelper:
             self._open_chat(chatid)
 
         try:
-            xpath = f'{content}/div/div[1]/div/main/div[1]/div/div/div/div[2]/div/div[1]/div/div/div[2]/div[1]/div/div[1]/div[1]/h1'
+            xpath = f'{content}/div/div[1]/div/main/div[1]/div/div/div/div/div[2]/div/div/div/div[1]/div/div[1]/h1/span[1]'
             element = self.browser.find_element(By.XPATH, xpath)
             WebDriverWait(self.browser, self.delay).until(EC.presence_of_element_located((By.XPATH, xpath)))
             return element.text
@@ -437,7 +442,7 @@ class MatchHelper:
         age = None
 
         try:
-            xpath = f'{content}/div/div[1]/div/main/div[1]/div/div/div/div[2]/div/div[1]/div/div/div[2]/div[1]/div/div[1]/span'
+            xpath = f'{content}/div/div[1]/div/main/div[1]/div/div/div/div/div[2]/div/div/div/div[1]/div/div[1]/h1/span[2]'
             element = self.browser.find_element(By.XPATH, xpath)
             WebDriverWait(self.browser, self.delay).until(EC.presence_of_element_located(
                 (By.XPATH, xpath)))
@@ -447,7 +452,6 @@ class MatchHelper:
                 age = None
         except:
             pass
-
         return age
 
 
@@ -528,7 +532,7 @@ class MatchHelper:
             image_urls = []
 
             # only get url of first few images, and not click all bullets to get all image
-            elements = self.browser.find_elements(By.XPATH, "//div[@aria-label='Profile slider']")
+            elements = self.browser.find_elements(By.XPATH, '//*[@id=":r1m:"]')
             for element in elements:
                 image_url = element.value_of_css_property('background-image').split('\"')[1]
                 if image_url not in image_urls:

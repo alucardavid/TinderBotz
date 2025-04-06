@@ -1,13 +1,15 @@
 # Selenium: automation of browser
 from selenium import webdriver
 # from webdriver_manager.chrome import ChromeDriverManager
-import undetected_chromedriver.v2 as uc
+import undetected_chromedriver as uc
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, ElementNotVisibleException
 from selenium.webdriver.common.by import By
 
+# my modules
+from tinderbotz.models.my_profile import MyProfile 
 
 # some other imports :-)
 import os
@@ -35,7 +37,7 @@ from tinderbotz.addproxy import get_proxy_extension
 
 class Session:
     HOME_URL = "https://www.tinder.com/app/recs"
-
+    PROFILE_URL = "https://www.tinder.com/app/profile"
     def __init__(self, headless=False, store_session=True, proxy=None, user_data=False):
         self.email = None
         self.may_send_email = False
@@ -88,9 +90,9 @@ class Session:
             Path(f'{user_data}First Run').touch()
             options.add_argument(f"--user-data-dir={user_data}")
 
-        #options.add_argument("--start-maximized")
+        options.add_argument("--start-maximized")
         options.add_argument('--no-first-run --no-service-autorun --password-store=basic')
-        options.add_argument("--lang=en-GB")
+        options.add_argument("--lang=en-US")
 
         if headless:
             options.headless = True
@@ -113,6 +115,7 @@ class Session:
         # Getting the chromedriver from cache or download it from internet
         print("Getting ChromeDriver ...")
         self.browser = uc.Chrome(options=options)  # ChromeDriverManager().install(),
+        self.browser.maximize_window()
         # self.browser = webdriver.Chrome(options=options)
         # self.browser.set_window_size(1250, 750)
 
@@ -165,6 +168,11 @@ class Session:
     def add_photo(self, filepath):
         helper = ProfileHelper(browser=self.browser)
         helper.add_photo(filepath)
+
+    def allow_permission(self):
+        helper = PreferencesHelper()
+        helper.allow_geolocation()
+        time.sleep(5)
 
     # Actions of the session
     def login_using_google(self, email, password):
@@ -222,8 +230,9 @@ class Session:
         if self._is_logged_in():
             helper = GeomatchHelper(browser=self.browser)
             amount_liked = 0
-            # handle one time up front, from then on check after every action instead of before
-            self._handle_potential_popups()
+            ## handle one time up front, from then on check after every action instead of before
+            popup = self._handle_potential_popups()
+            
             print("\nLiking profiles started.")
             while amount_liked < amount:
                 # randomize sleep
@@ -240,7 +249,10 @@ class Session:
                     # update for stats after session ended
                     self.session_data['dislike'] += 1
 
-                #self._handle_potential_popups()
+                popup = self._handle_potential_popups()
+                if popup == 'POPUP: Denied unlimited likes':
+                    print('Looks like there are no likes available.')
+                    return 
                 time.sleep(sleep)
 
             self._print_liked_stats()
@@ -306,7 +318,7 @@ class Session:
     def get_new_matches(self, amount=100000, quickload=True):
         if self._is_logged_in():
             helper = MatchHelper(browser=self.browser)
-            self._handle_potential_popups()
+            # self._handle_potential_popups()
             return helper.get_new_matches(amount, quickload)
 
     def get_messaged_matches(self, amount=100000, quickload=True):
@@ -351,6 +363,36 @@ class Session:
 
         # last possible id based div
         base_element = self.browser.find_element(By.XPATH, modal_manager)
+
+        # try to deny checkout tinder plus features
+        try:
+            xpath = '/html/body/div[2]/div/div/div/div[3]/button[1]'
+            WebDriverWait(base_element, delay).until(
+                EC.presence_of_element_located((By.XPATH, xpath)))
+
+            deny_btn = base_element.find_element(By.XPATH, xpath)
+            deny_btn.click()
+            return "POPUP: Denied checkout plus features"
+        
+        except NoSuchElementException:
+            pass
+        except TimeoutException:
+            pass
+
+        # try to deny ulimited likes
+        try:
+            xpath = '//*[@id="s1343232979"]/div/div/div[2]/button'
+            WebDriverWait(base_element, delay).until(
+                EC.presence_of_element_located((By.XPATH, xpath)))
+
+            deny_btn = base_element.find_element(By.XPATH, xpath)
+            deny_btn.click()
+            return "POPUP: Denied unlimited likes"
+        
+        except NoSuchElementException:
+            pass
+        except TimeoutException:
+            pass
 
         # try to deny see who liked you
         try:
@@ -468,10 +510,14 @@ class Session:
         # make sure tinder website is loaded for the first time
         if not "tinder" in self.browser.current_url:
             # enforce english language
-            self.browser.get("https://tinder.com/?lang=en")
+            self.browser.get("https://tinder.com/app/recs")
             time.sleep(1.5)
 
-        if "tinder.com/app/" in self.browser.current_url:
+        if "tinder.com/app/recs" in self.browser.current_url:
+            return True
+        elif "tinder.com/app/profile" in self.browser.current_url:
+            self.browser.get("https://tinder.com/app/recs")
+            time.sleep(1.5)
             return True
         else:
             print("User is not logged in yet.\n")
@@ -502,3 +548,44 @@ class Session:
         if dislikes > 0:
             print(f"You've disliked {self.session_data['dislike']} profiles during this session.")
 
+    def _get_my_profile_match(self) -> MyProfile:
+        self._go_to_profile()
+        
+        interests = self._get_my_interests()
+
+        my_profile: MyProfile = MyProfile(interests)
+
+        input('-----------')
+
+
+        # xpath = '//*[@id="s1164806355"]'
+        # try:
+        #     WebDriverWait(self.browser, self.delay).until(EC.presence_of_element_located((By.XPATH, xpath)))
+        # except TimeoutException:
+        #     print("match tab could not be found, trying again")
+        #     self.browser.get(self.HOME_URL)
+        #     time.sleep(1)
+        #     return self.get_chat_ids(new, messaged)
+    
+    def _go_to_profile(self):
+        self.browser.get(self.PROFILE_URL)
+        time.sleep(2)
+        self._handle_potential_popups()
+
+    def _get_my_interests(self):
+        delay = 0.25
+        interests = []
+
+        xpath = '/html/body/div[1]/div/div[1]/div/main/div[1]/div/div/div/div/div[1]/div[2]/div[2]/div/div[9]/div[2]/div'
+
+        try:
+            WebDriverWait(self.browser, delay).until(EC.presence_of_element_located((By.XPATH, xpath)))
+            interests_list = self.browser.find_elements(By.XPATH, xpath)
+            for interest in interests_list:
+                interests.append(interest.text)
+
+            return interests
+        except TimeoutException:
+            print("interests list could not be found, trying again")
+            return []
+        

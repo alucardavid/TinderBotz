@@ -57,9 +57,9 @@ class PreferencesHelper:
         while abs(final_percentage - current_percentage) > 1:
             ac = ActionChains(self.browser)
             if current_percentage < final_percentage:
-                ac.click_and_hold(link).move_by_offset(3, 0).release(link).perform()
+                ac.click_and_hold(link).move_by_offset(10, 0).release(link).perform()
             elif current_percentage > final_percentage:
-                ac.click_and_hold(link).move_by_offset(-3, 0).release(link).perform()
+                ac.click_and_hold(link).move_by_offset(-10, 0).release(link).perform()
             # update current percentage
             current_percentage = float(link.get_attribute('style').split(' ')[1].split('%')[0])
 
@@ -195,3 +195,12 @@ class PreferencesHelper:
             self.browser.find_elements(By.XPATH, xpath).click()
             '''
             time.sleep(5)
+
+    def allow_geolocation(self):
+        xpath = f'//*[@id="s1343232979"]/div/div[1]/div/div/div[3]/button[1]'
+        WebDriverWait(self.browser, self.delay).until(EC.presence_of_element_located(
+            (By.XPATH, xpath)))
+        button = self.browser.find_element(By.XPATH, xpath)
+        button.click()
+        time.sleep(3)
+    
